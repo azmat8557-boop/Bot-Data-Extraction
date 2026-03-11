@@ -26,4 +26,4 @@ This project automates extraction of customer-location table data from a dynamic
 - Clean records (zero values skipped)
 
 ## Notes
-Generated runtime files like `report.html`, `log.html`, `output.xml`, and generated screenshots/excel outputs are ignored in Git via `.gitignore`.
+Generated runtime files like `report.html`, `log.html`, `output.xml.
