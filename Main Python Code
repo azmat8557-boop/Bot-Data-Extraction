@@ -1,0 +1,72 @@
+import openpyxl
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+
+driver = webdriver.Chrome()
+wait = WebDriverWait(driver, 30)
+
+wb = openpyxl.Workbook()
+# Remove default sheet; we will create dynamic sheets from table headers.
+wb.remove(wb.active)
+
+try:
+    driver.get("https://botsdna.com/locator/")
+
+    # Use this validated visible-table XPath.
+    table_xpath = "//table[contains(@class,'ng-scope') and not(contains(@style,'display: none'))]"
+    table = wait.until(EC.presence_of_element_located((By.XPATH, table_xpath)))
+
+    # Read header cells from first header row.
+    headers = table.find_elements(By.XPATH, ".//tbody/tr[1]/th")
+
+    # Map data index -> worksheet.
+    # data index 1 means th[2], data index 2 means th[3], etc.
+    sheet_by_index = {}
+
+    for column_index in range(2, len(headers) + 1):
+        raw_name = headers[column_index - 1].text.strip() or f"Sheet_{column_index - 1}"
+    
+        # Excel-safe sheet name
+        for ch in [":", "\\", "/", "?", "*", "[", "]"]:
+            raw_name = raw_name.replace(ch, "_")
+        sheet_name = raw_name[:31] if raw_name else f"Sheet_{column_index - 1}"
+
+        # Avoid name collision
+        if sheet_name in wb.sheetnames:
+            sheet_name = f"{sheet_name[:28]}_{column_index - 1}"
+
+        ws = wb.create_sheet(title=sheet_name)
+        ws.append(["Customer Name", "No of Locations"])
+        sheet_by_index[column_index - 1] = ws
+
+    # Read all data rows (at least 2 cells).
+    rows = table.find_elements(By.XPATH, ".//tbody/tr")
+
+    for row in rows:
+        cells = row.find_elements(By.XPATH, ".//td")
+
+        if len(cells) < 2:#it will skip rows with less than 2 cells, which are not valid data rows.
+            continue
+
+        customer_name = cells[0].text.strip()
+        if not customer_name:
+            continue
+
+        # Write each value (td[2..n]) into corresponding sheet.
+        # Skip '0' values.
+        for index in range(1, len(cells)):
+            value = cells[index].text.strip()
+            if value == "0":
+                continue
+            if index in sheet_by_index:
+                sheet_by_index[index].append([customer_name, value])
+
+    wb.save("Practice_Output.xlsx")
+
+    print("Saved Practice_Output.xlsx")
+    print("Sheets created:", ", ".join(wb.sheetnames))
+finally:
+    driver.quit()
